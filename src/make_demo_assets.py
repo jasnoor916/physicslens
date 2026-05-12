@@ -606,8 +606,8 @@ def render_group5():
             transform=ax.transAxes)
 
     # Separator line
-    ax.axhline(y=0.82, xmin=0.05, xmax=0.95,
-               color=GREY, lw=0.8, transform=ax.transAxes)
+    ax.plot([0.05, 0.95], [0.82, 0.82],
+            color=GREY, lw=0.8, transform=ax.transAxes)
 
     # True equation
     ax.text(0.08, 0.70, "True equation of motion:",
