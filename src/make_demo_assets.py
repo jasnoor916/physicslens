@@ -85,23 +85,28 @@ plt.rcParams.update({
 # ══════════════════════════════════════════════════════════════════════════════
 
 class FrameEncoder(nn.Module):
-    """Must match world_model.py exactly."""
+    """Matches world_model.py architecture used in world_model_combined.pt."""
     def __init__(self, latent_dim=16):
         super().__init__()
+        self.latent_dim = latent_dim
         self.conv = nn.Sequential(
-            nn.Conv2d(3, 32, 4, 2, 1), nn.ReLU(),
-            nn.Conv2d(32, 64, 4, 2, 1), nn.ReLU(),
-            nn.Conv2d(64, 128, 4, 2, 1), nn.ReLU(),
-            nn.Conv2d(128, 256, 4, 2, 1), nn.ReLU(),
+            nn.Conv2d(3,   32,  4, 2, 1), nn.ReLU(inplace=True),
+            nn.Conv2d(32,  64,  4, 2, 1), nn.ReLU(inplace=True),
+            nn.Conv2d(64,  128, 4, 2, 1), nn.ReLU(inplace=True),
+            nn.Conv2d(128, 256, 4, 2, 1), nn.ReLU(inplace=True),
         )
-        self.fc_mu     = nn.Linear(256 * 4 * 4, latent_dim)
-        self.fc_logvar = nn.Linear(256 * 4 * 4, latent_dim)
+        self.fc = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(256 * 4 * 4, 256),
+            nn.ReLU(inplace=True),
+            nn.Linear(256, latent_dim * 2),   # outputs [mu || logvar]
+        )
 
     def forward(self, x):
-        # x: (B, 3, 64, 64)
-        h = self.conv(x).flatten(1)
-        return self.fc_mu(h), self.fc_logvar(h)
-
+        h   = self.conv(x)
+        out = self.fc(h)
+        mu, logvar = out.chunk(2, dim=-1)
+        return mu, logvar
 
 class SceneEncoderV2(nn.Module):
     """Must match train_scene_encoder.py exactly (with encode() added)."""
@@ -146,16 +151,21 @@ def load_frame_encoder(ckpt_name="world_model_combined.pt"):
     path = CKPT_DIR / ckpt_name
     assert path.exists(), f"Frame encoder checkpoint not found: {path}"
     ckpt = torch.load(path, map_location=DEVICE)
-    enc  = FrameEncoder(latent_dim=16).to(DEVICE)
-    # WorldModel checkpoint stores sub-module state dicts
-    state = {k.replace("encoder.", "", 1): v
-             for k, v in ckpt["model_state_dict"].items()
-             if k.startswith("encoder.")}
-    enc.load_state_dict(state)
-    enc.eval()
-    print(f"  ✓ FrameEncoder loaded from {ckpt_name}")
-    return enc
 
+    # combined-model checkpoint uses key "model_state"
+    full_state = ckpt.get("model_state") or ckpt.get("model_state_dict")
+    assert full_state is not None, f"No model state found in {ckpt_name}"
+
+    enc = FrameEncoder(latent_dim=16).to(DEVICE)
+    state = {k.replace("encoder.", "", 1): v
+             for k, v in full_state.items()
+             if k.startswith("encoder.")}
+    missing, unexpected = enc.load_state_dict(state, strict=False)
+    if missing or unexpected:
+        print(f"  ⚠ missing={missing}  unexpected={unexpected}")
+    enc.eval()
+    print(f"  ✓ FrameEncoder loaded from {ckpt_name}  ({len(state)} tensors)")
+    return enc
 
 def load_scene_encoder(ckpt_name):
     path = CKPT_DIR / ckpt_name
