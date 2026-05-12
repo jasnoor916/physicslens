@@ -1,0 +1,37 @@
+cat > .gitignore << 'EOF'
+# Large files — stay on Drive/Colab only
+data/
+checkpoints/
+logs/
+*.npz
+*.pt
+*.pth
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.eggs/
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Environment
+.env
+venv/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Colab mount artifacts
+drive/
+EOF
+
+# Verify
+cat .gitignore
