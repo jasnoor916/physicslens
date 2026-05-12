@@ -4,6 +4,7 @@ train_scene_encoder.py — Reusable scene encoder trainer (any scenario)
 Usage:
     python src/train_scene_encoder.py --scenario oscillator
     python src/train_scene_encoder.py --scenario pendulum
+    python src/train_scene_encoder.py --scenario pendulum --ckpt world_model_combined.pt
 """
 
 import os, sys, json, argparse
@@ -104,8 +105,10 @@ def get_loaders(data_dir, param_keys, n_total=1500, train_frac=0.8, batch_size=3
 
 
 # ── Frozen frame encoder ──────────────────────────────────────────
-def load_frozen_encoder(latent_dim=16):
-    ckpt = torch.load(CKPT_DIR / "world_model_best.pt", map_location=DEVICE)
+def load_frozen_encoder(latent_dim=16, ckpt_name="world_model_best.pt"):
+    ckpt_path = CKPT_DIR / ckpt_name
+    print(f"Loading frame encoder from: {ckpt_path}")
+    ckpt = torch.load(ckpt_path, map_location=DEVICE)
     state = ckpt.get("model_state_dict") or ckpt.get("model_state")
 
     encoder = FrameEncoder(latent_dim=latent_dim).to(DEVICE)
@@ -134,19 +137,21 @@ def extract_latents(encoder, loader):
 
 
 # ── Training loop ─────────────────────────────────────────────────
-def train(scenario, epochs=60, batch_size=64, lr=2e-3):
+def train(scenario, epochs=60, batch_size=64, lr=2e-3,
+          ckpt_name="world_model_best.pt"):
     cfg = SCENARIO_CONFIG[scenario]
     print(f"\n{'='*60}")
     print(f"Training scene encoder: {scenario}")
-    print(f"  Equation: {cfg['equation']}")
-    print(f"  Targets:  {cfg['labels']}")
+    print(f"  Equation:        {cfg['equation']}")
+    print(f"  Targets:         {cfg['labels']}")
+    print(f"  Frame encoder:   {ckpt_name}")
     print(f"{'='*60}")
 
     train_loader, val_loader = get_loaders(
         cfg["data_dir"], cfg["param_keys"], batch_size=32
     )
 
-    encoder = load_frozen_encoder()
+    encoder = load_frozen_encoder(ckpt_name=ckpt_name)
     print("Frame encoder loaded & frozen ✓")
 
     print("Extracting latents...")
@@ -213,13 +218,16 @@ def train(scenario, epochs=60, batch_size=64, lr=2e-3):
 
     model.load_state_dict(best_state)
 
-    # Save
-    save_path = CKPT_DIR / f"scene_encoder_{scenario}.pt"
+    # Save with suffix if combined ckpt was used
+    suffix = "_combined" if "combined" in ckpt_name else ""
+    save_path = CKPT_DIR / f"scene_encoder_{scenario}{suffix}.pt"
+
     norm_stats = {
         "p1_mean": p1_mean, "p1_std": p1_std,
         "p2_mean": p2_mean, "p2_std": p2_std,
         "scenario": scenario,
         "param_labels": cfg["labels"],
+        "frame_encoder_ckpt": ckpt_name,
     }
     torch.save({
         "model_state_dict": model.state_dict(),
@@ -227,9 +235,15 @@ def train(scenario, epochs=60, batch_size=64, lr=2e-3):
         "config": {"latent_dim": 16, "hidden_dim": 64, "scene_dim": 32}
     }, save_path)
 
-    with open(LOG_DIR / f"scene_encoder_{scenario}.json", "w") as f:
-        json.dump({"scenario": scenario, "best_r2_p1": float(best_r2),
-                   "final_r2_p2": float(r2_p2), "history": history}, f, indent=2)
+    log_name = f"scene_encoder_{scenario}{suffix}.json"
+    with open(LOG_DIR / log_name, "w") as f:
+        json.dump({
+            "scenario": scenario,
+            "frame_encoder_ckpt": ckpt_name,
+            "best_r2_p1": float(best_r2),
+            "final_r2_p2": float(r2_p2),
+            "history": history
+        }, f, indent=2)
 
     print(f"\nBest R²({cfg['labels'][0][:1]}) = {best_r2:.4f}")
     print(f"Saved: {save_path}")
@@ -240,5 +254,7 @@ if __name__ == "__main__":
     parser.add_argument("--scenario", default="oscillator",
                         choices=list(SCENARIO_CONFIG.keys()))
     parser.add_argument("--epochs", type=int, default=60)
+    parser.add_argument("--ckpt", default="world_model_best.pt",
+                        help="Frame encoder checkpoint to load (e.g. world_model_combined.pt)")
     args = parser.parse_args()
-    train(args.scenario, epochs=args.epochs)
+    train(args.scenario, epochs=args.epochs, ckpt_name=args.ckpt)
