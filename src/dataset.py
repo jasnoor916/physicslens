@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 class OscillatorDataset(Dataset):
-    def __init__(self, data_dir, n_frames=20, split='train', train_frac=0.8):
+    def __init__(self, data_dir, n_frames=180, split='train', train_frac=0.8):
         self.data_dir = Path(data_dir)
         self.n_frames = n_frames
 
@@ -38,7 +38,7 @@ class OscillatorDataset(Dataset):
         return video, params, states
 
 
-def get_dataloaders(data_dir, n_frames=20, batch_size=8, num_workers=2):
+def get_dataloaders(data_dir, n_frames=180, batch_size=8, num_workers=2):
     train_ds = OscillatorDataset(data_dir, n_frames=n_frames, split='train')
     val_ds   = OscillatorDataset(data_dir, n_frames=n_frames, split='val')
 
@@ -63,7 +63,7 @@ class CombinedPhysicsDataset(Dataset):
     Frame encoder learns generic 'red-blob-on-dark-background' features
     across both scenarios.
     """
-    def __init__(self, n_frames=20, split='train', train_frac=0.8):
+    def __init__(self, n_frames=180, split='train', train_frac=0.8):
         self.n_frames = n_frames
 
         osc_dir = Path("data/oscillator")
@@ -107,7 +107,7 @@ class CombinedPhysicsDataset(Dataset):
         return video, states, torch.tensor(scenario_id, dtype=torch.long)
 
 
-def get_combined_dataloaders(n_frames=20, batch_size=32, num_workers=2):
+def get_combined_dataloaders(n_frames=180, batch_size=32, num_workers=2):
     train_ds = CombinedPhysicsDataset(n_frames=n_frames, split='train')
     val_ds   = CombinedPhysicsDataset(n_frames=n_frames, split='val')
 

@@ -25,7 +25,7 @@ pygame.init()
 G        = 9.81
 IMG_SIZE = 64
 FPS      = 30
-N_FRAMES = 90
+N_FRAMES = 180
 PX_PER_M = 25.0
 
 

@@ -26,7 +26,7 @@ from src.dataset import get_combined_dataloaders
 
 
 def train(
-    n_frames       = 20,
+    n_frames = 180,
     batch_size     = 32,
     latent_dim     = 16,
     beta           = 0.001,

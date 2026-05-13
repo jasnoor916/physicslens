@@ -11,7 +11,7 @@ from pathlib import Path
 pygame.init()
 
 def generate_oscillator_video(k, b, m, x0, v0,
-                               duration=3.0, fps=30,
+                               duration=6.0, fps=30,
                                save_path=None,
                                img_size=(64, 64)):
     W_render, H_render = 320, 240
@@ -105,7 +105,7 @@ def generate_dataset(n_samples=500, out_dir="data/oscillator", seed=42):
     print(f"Done.")
 
 if __name__ == "__main__":
-    generate_dataset(n_samples=500)
+    generate_dataset(n_samples=1500)
 
     d = np.load("data/oscillator/sample_0000.npz")
     print(f"\nSanity check:")
